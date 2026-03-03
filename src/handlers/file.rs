@@ -215,8 +215,7 @@ fn humanize_time(t: std::time::SystemTime) -> String {
         .unwrap_or_default();
     let secs = duration.as_secs();
     // ISO 8601 approximation
-    let naive = chrono_from_epoch(secs);
-    naive
+    chrono_from_epoch(secs)
 }
 
 fn chrono_from_epoch(secs: u64) -> String {
@@ -261,5 +260,5 @@ fn days_to_ymd(mut days: u64) -> (u64, u64, u64) {
 }
 
 fn is_leap(y: u64) -> bool {
-    (y % 4 == 0 && y % 100 != 0) || y % 400 == 0
+    (y.is_multiple_of(4) && !y.is_multiple_of(100)) || y.is_multiple_of(400)
 }

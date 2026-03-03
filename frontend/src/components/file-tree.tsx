@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useState } from "react";
+import React, { memo, useCallback } from "react";
 import {
   ChevronRight,
   File,
@@ -12,6 +12,7 @@ import {
   Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useUiStore } from "@/stores/ui-store";
 import type { FileNode } from "@/api/types";
 
 function getFileIcon(name: string) {
@@ -71,7 +72,12 @@ export const FileTreeItem = memo(function FileTreeItem({
   onPrefetch,
   depth = 0,
 }: FileTreeItemProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const isOpen = useUiStore((s) => s.expandedFolders[node.path] ?? false);
+  const toggleFolder = useUiStore((s) => s.toggleFolder);
+
+  const handleToggle = useCallback(() => {
+    toggleFolder(node.path);
+  }, [toggleFolder, node.path]);
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
@@ -90,7 +96,7 @@ export const FileTreeItem = memo(function FileTreeItem({
             "transition-colors duration-75"
           )}
           style={{ paddingLeft: `${depth * 12 + 8}px` }}
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={handleToggle}
           onContextMenu={handleContextMenu}
         >
           <ChevronRight

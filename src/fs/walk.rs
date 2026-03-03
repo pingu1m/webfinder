@@ -1,3 +1,4 @@
+use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -106,7 +107,7 @@ pub fn walk_tree(root: &Path, config: &FilesystemConfig) -> Vec<FileNode> {
 
     // Build tree bottom-up: assign children to their parent dirs
     // Process deepest paths first
-    all_dirs.sort_by(|a, b| b.components().count().cmp(&a.components().count()));
+    all_dirs.sort_by_key(|b| Reverse(b.components().count()));
 
     for dir_path in &all_dirs {
         if dir_path == root {
@@ -228,7 +229,7 @@ fn remove_recursive(nodes: &mut Vec<FileNode>, parts: &[&str]) -> bool {
     false
 }
 
-fn sort_children(nodes: &mut Vec<FileNode>) {
+fn sort_children(nodes: &mut [FileNode]) {
     nodes.sort_by(|a, b| {
         match (&a.node_type, &b.node_type) {
             (NodeType::Dir, NodeType::File) => std::cmp::Ordering::Less,

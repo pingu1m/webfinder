@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { SidebarCustom, SIDEBAR_DEFAULT_WIDTH } from "@/components/sidebar-custom";
+import { SidebarCustom } from "@/components/sidebar-custom";
 import { EditorPanel } from "@/components/editor-panel";
 import { OutputPanel } from "@/components/output-panel";
 import { ContextMenu, NewItemDialog } from "@/components/context-menu";
@@ -121,21 +121,6 @@ export default function App() {
 
   const runner = useRunner();
 
-  const STORAGE_KEY = "webfinder-sidebar-width";
-  const [sidebarWidth, setSidebarWidth] = useState(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const n = Number(stored);
-      if (Number.isFinite(n) && n >= 180 && n <= 500) return n;
-    }
-    return SIDEBAR_DEFAULT_WIDTH;
-  });
-  const handleSidebarResize = useCallback((w: number) => {
-    setSidebarWidth(w);
-    localStorage.setItem(STORAGE_KEY, String(w));
-  }, []);
-
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -319,10 +304,6 @@ export default function App() {
         onNewFile={() => setDialog({ type: "new-file", parentPath: "" })}
         onNewFolder={() => setDialog({ type: "new-folder", parentPath: "" })}
         onSettings={() => setShowSettings(true)}
-        collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-        width={sidebarWidth}
-        onResize={handleSidebarResize}
       />
 
       <div className="flex-1 flex flex-col min-w-0">

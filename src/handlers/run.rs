@@ -54,7 +54,7 @@ pub async fn start_run(
         })?;
 
     let handle = spawn_runner(&runner_config, &resolved, &state.root)
-        .map_err(|e| AppError::Internal(e))?;
+        .map_err(AppError::Internal)?;
 
     let id = uuid::Uuid::new_v4().to_string();
 

@@ -12,12 +12,13 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { FileTreeItem } from "@/components/file-tree";
+import { useUiStore } from "@/stores/ui-store";
 import type { FileNode } from "@/api/types";
 import { cn } from "@/lib/utils";
 
-export const SIDEBAR_DEFAULT_WIDTH = 256;
-export const SIDEBAR_MIN_WIDTH = 180;
-export const SIDEBAR_MAX_WIDTH = 500;
+const SIDEBAR_DEFAULT_WIDTH = 256;
+const SIDEBAR_MIN_WIDTH = 180;
+const SIDEBAR_MAX_WIDTH = 500;
 
 function filterTree(nodes: FileNode[], query: string): FileNode[] {
   if (!query) return nodes;
@@ -47,10 +48,6 @@ interface SidebarProps {
   onNewFile: () => void;
   onNewFolder: () => void;
   onSettings: () => void;
-  collapsed?: boolean;
-  onToggle?: () => void;
-  width: number;
-  onResize: (width: number) => void;
 }
 
 export function SidebarCustom({
@@ -65,11 +62,12 @@ export function SidebarCustom({
   onNewFile,
   onNewFolder,
   onSettings,
-  collapsed,
-  onToggle,
-  width,
-  onResize,
 }: SidebarProps) {
+  const collapsed = useUiStore((s) => s.sidebarCollapsed);
+  const width = useUiStore((s) => s.sidebarWidth);
+  const toggleSidebar = useUiStore((s) => s.toggleSidebar);
+  const setSidebarWidth = useUiStore((s) => s.setSidebarWidth);
+
   const [search, setSearch] = useState("");
   const filtered = useMemo(() => {
     const result = filterTree(tree, search);
@@ -109,7 +107,7 @@ export function SidebarCustom({
       const handleMove = (ev: MouseEvent) => {
         if (!dragStateRef.current) return;
         const delta = ev.clientX - dragStateRef.current.startX;
-        onResize(Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, dragStateRef.current.startWidth + delta)));
+        setSidebarWidth(Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, dragStateRef.current.startWidth + delta)));
       };
 
       const handleUp = () => {
@@ -123,19 +121,19 @@ export function SidebarCustom({
       document.addEventListener("mousemove", handleMove);
       document.addEventListener("mouseup", handleUp);
     },
-    [width, onResize]
+    [width, setSidebarWidth]
   );
 
   const handleDragDoubleClick = useCallback(() => {
-    onResize(SIDEBAR_DEFAULT_WIDTH);
-  }, [onResize]);
+    setSidebarWidth(SIDEBAR_DEFAULT_WIDTH);
+  }, [setSidebarWidth]);
 
   if (collapsed) {
     return (
       <div className="w-10 border-r bg-sidebar flex flex-col items-center pt-2 shrink-0">
         <button
           className="p-2 rounded hover:bg-accent"
-          onClick={onToggle}
+          onClick={toggleSidebar}
           title="Expand sidebar"
         >
           <FolderTree className="h-4 w-4 text-muted-foreground" />
@@ -164,11 +162,9 @@ export function SidebarCustom({
               <Button variant="ghost" size="icon-xs" onClick={onSettings} title="Settings">
                 <Settings className="h-3.5 w-3.5" />
               </Button>
-              {onToggle && (
-                <Button variant="ghost" size="icon-xs" onClick={onToggle} title="Collapse sidebar">
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              )}
+              <Button variant="ghost" size="icon-xs" onClick={toggleSidebar} title="Collapse sidebar">
+                <X className="h-3.5 w-3.5" />
+              </Button>
             </div>
           </div>
           <div className="relative">
