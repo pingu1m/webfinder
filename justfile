@@ -4,8 +4,6 @@
 default:
     @just --list
 
-# Felipe Here
-
 # ─── Build ───────────────────────────────────────────────────────────────────
 
 # Install frontend dependencies
@@ -111,3 +109,22 @@ clean-test-results:
 
 # Remove everything
 clean: clean-rust clean-frontend clean-test-results
+
+# ─── Release ──────────────────────────────────────────────────────────────
+
+# Format all Rust code
+fmt:
+    cargo fmt
+
+# Tag and push a new release (e.g. just release v0.2.0)
+release version:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Preparing release {{version}}..."
+    cargo fmt --check || { echo "Run 'just fmt' first"; exit 1; }
+    cargo clippy --locked -- -D warnings || { echo "Fix clippy warnings first"; exit 1; }
+    cargo test --locked || { echo "Tests failed"; exit 1; }
+    git tag -a {{version}} -m "{{version}}"
+    git push origin main --tags
+    echo "Release {{version}} pushed — GitHub Actions will build binaries and create the release."
+    echo "https://github.com/pingu1m/webfinder/releases"
