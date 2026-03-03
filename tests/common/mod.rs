@@ -58,7 +58,12 @@ impl TestServer {
 
         let client = reqwest::Client::new();
 
-        Self { addr, dir, client, watch_tx }
+        Self {
+            addr,
+            dir,
+            client,
+            watch_tx,
+        }
     }
 
     pub fn url(&self, path: &str) -> String {

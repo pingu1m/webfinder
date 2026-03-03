@@ -96,10 +96,7 @@ async fn test_rename_folder() {
 
     assert!(!server.dir_path().join("old-dir").exists());
     assert!(server.dir_path().join("new-dir").is_dir());
-    let content = std::fs::read_to_string(
-        server.dir_path().join("new-dir/file.txt"),
-    )
-    .unwrap();
+    let content = std::fs::read_to_string(server.dir_path().join("new-dir/file.txt")).unwrap();
     assert_eq!(content, "content");
 }
 

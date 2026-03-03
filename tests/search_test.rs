@@ -85,7 +85,11 @@ async fn test_search_empty_query() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_search_content_with_line_number() {
     let server = TestServer::start_with_setup(|dir| {
-        std::fs::write(dir.join("multi.txt"), "line one\nline two\nfind me\nline four").unwrap();
+        std::fs::write(
+            dir.join("multi.txt"),
+            "line one\nline two\nfind me\nline four",
+        )
+        .unwrap();
     })
     .await;
 
@@ -119,7 +123,9 @@ async fn test_search_unknown_mode_defaults_to_filename() {
     assert_eq!(res.status(), 200);
 
     let body: Vec<serde_json::Value> = res.json().await.unwrap();
-    assert!(body.iter().any(|r| r["name"].as_str() == Some("myfile.txt")));
+    assert!(body
+        .iter()
+        .any(|r| r["name"].as_str() == Some("myfile.txt")));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -139,7 +145,9 @@ async fn test_search_filename_case_insensitive() {
 
     let body: Vec<serde_json::Value> = res.json().await.unwrap();
     assert!(!body.is_empty(), "case-insensitive filename search failed");
-    assert!(body.iter().any(|r| r["name"].as_str() == Some("MyFile.TXT")));
+    assert!(body
+        .iter()
+        .any(|r| r["name"].as_str() == Some("MyFile.TXT")));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

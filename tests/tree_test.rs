@@ -35,12 +35,18 @@ async fn test_get_tree_with_files() {
 
     assert_eq!(res.status(), 200);
     let body: Vec<serde_json::Value> = res.json().await.unwrap();
-    assert!(body.len() >= 2, "expected at least 2 entries, got: {body:?}");
+    assert!(
+        body.len() >= 2,
+        "expected at least 2 entries, got: {body:?}"
+    );
 
     // Should contain src dir and hello.txt
     let names: Vec<&str> = body.iter().filter_map(|n| n["name"].as_str()).collect();
     assert!(names.contains(&"src"), "expected src dir in {names:?}");
-    assert!(names.contains(&"hello.txt"), "expected hello.txt in {names:?}");
+    assert!(
+        names.contains(&"hello.txt"),
+        "expected hello.txt in {names:?}"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

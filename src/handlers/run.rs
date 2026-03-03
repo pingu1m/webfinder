@@ -38,10 +38,7 @@ pub async fn start_run(
         return Err(AppError::NotFound(format!("{} is not a file", body.path)));
     }
 
-    let ext = resolved
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("");
+    let ext = resolved.extension().and_then(|e| e.to_str()).unwrap_or("");
 
     let runner_config = state
         .config
@@ -49,12 +46,10 @@ pub async fn start_run(
         .await
         .find_runner_for_extension(ext)
         .map(|(_, r)| r.clone())
-        .ok_or_else(|| {
-            AppError::BadRequest(format!("no runner configured for .{ext} files"))
-        })?;
+        .ok_or_else(|| AppError::BadRequest(format!("no runner configured for .{ext} files")))?;
 
-    let handle = spawn_runner(&runner_config, &resolved, &state.root)
-        .map_err(AppError::Internal)?;
+    let handle =
+        spawn_runner(&runner_config, &resolved, &state.root).map_err(AppError::Internal)?;
 
     let id = uuid::Uuid::new_v4().to_string();
 

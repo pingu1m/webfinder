@@ -67,26 +67,38 @@ pub struct FilesystemConfig {
 impl Default for Config {
     fn default() -> Self {
         let mut runners = HashMap::new();
-        runners.insert("python".into(), RunnerConfig {
-            command: "python3".into(),
-            args: vec!["{file}".into()],
-            extensions: vec!["py".into()],
-        });
-        runners.insert("node".into(), RunnerConfig {
-            command: "node".into(),
-            args: vec!["{file}".into()],
-            extensions: vec!["js".into(), "mjs".into()],
-        });
-        runners.insert("typescript".into(), RunnerConfig {
-            command: "npx".into(),
-            args: vec!["tsx".into(), "{file}".into()],
-            extensions: vec!["ts".into(), "tsx".into()],
-        });
-        runners.insert("shell".into(), RunnerConfig {
-            command: "bash".into(),
-            args: vec!["{file}".into()],
-            extensions: vec!["sh".into(), "bash".into()],
-        });
+        runners.insert(
+            "python".into(),
+            RunnerConfig {
+                command: "python3".into(),
+                args: vec!["{file}".into()],
+                extensions: vec!["py".into()],
+            },
+        );
+        runners.insert(
+            "node".into(),
+            RunnerConfig {
+                command: "node".into(),
+                args: vec!["{file}".into()],
+                extensions: vec!["js".into(), "mjs".into()],
+            },
+        );
+        runners.insert(
+            "typescript".into(),
+            RunnerConfig {
+                command: "npx".into(),
+                args: vec!["tsx".into(), "{file}".into()],
+                extensions: vec!["ts".into(), "tsx".into()],
+            },
+        );
+        runners.insert(
+            "shell".into(),
+            RunnerConfig {
+                command: "bash".into(),
+                args: vec!["{file}".into()],
+                extensions: vec!["sh".into(), "bash".into()],
+            },
+        );
         Self {
             server: ServerConfig::default(),
             user: UserConfig::default(),

@@ -34,8 +34,7 @@ async fn test_watch_receives_broadcast_event() {
     let event = tokio::time::timeout(std::time::Duration::from_secs(3), async {
         while let Some(msg) = read.next().await {
             if let Ok(tokio_tungstenite::tungstenite::Message::Text(text)) = msg {
-                let parsed: serde_json::Value =
-                    serde_json::from_str(&text).unwrap_or_default();
+                let parsed: serde_json::Value = serde_json::from_str(&text).unwrap_or_default();
                 if parsed["path"].as_str() == Some("test-file.txt") {
                     return Some(parsed);
                 }
@@ -80,8 +79,7 @@ async fn test_watch_receives_multiple_events() {
     let _ = tokio::time::timeout(std::time::Duration::from_secs(3), async {
         while let Some(msg) = read.next().await {
             if let Ok(tokio_tungstenite::tungstenite::Message::Text(text)) = msg {
-                let parsed: serde_json::Value =
-                    serde_json::from_str(&text).unwrap_or_default();
+                let parsed: serde_json::Value = serde_json::from_str(&text).unwrap_or_default();
                 received.push(parsed);
                 if received.len() >= 3 {
                     return;

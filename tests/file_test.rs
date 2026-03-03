@@ -204,10 +204,7 @@ async fn test_create_file_in_nested_dir() {
         .unwrap();
     assert_eq!(res.status(), 201);
 
-    let content = std::fs::read_to_string(
-        server.dir_path().join("deep/nested/file.txt"),
-    )
-    .unwrap();
+    let content = std::fs::read_to_string(server.dir_path().join("deep/nested/file.txt")).unwrap();
     assert_eq!(content, "nested");
 }
 
@@ -217,7 +214,8 @@ async fn test_read_binary_file() {
 
     let path = server.dir_path().join("image.bin");
     let mut f = std::fs::File::create(&path).unwrap();
-    f.write_all(&[0x89, 0x50, 0x4E, 0x47, 0x00, 0x00, 0x00, 0x00]).unwrap();
+    f.write_all(&[0x89, 0x50, 0x4E, 0x47, 0x00, 0x00, 0x00, 0x00])
+        .unwrap();
 
     let res = server
         .client

@@ -73,8 +73,7 @@ async fn main() -> anyhow::Result<()> {
     let tree = {
         let root = root.clone();
         let fs_config = config.filesystem.clone();
-        tokio::task::spawn_blocking(move || walk::walk_tree(&root, &fs_config))
-            .await?
+        tokio::task::spawn_blocking(move || walk::walk_tree(&root, &fs_config)).await?
     };
     {
         let mut cache = state.tree_cache.write().await;

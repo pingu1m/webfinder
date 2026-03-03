@@ -59,7 +59,11 @@ pub fn spawn_watcher(
                             let is_dir = path.is_dir();
                             let already_in_tree = walk::node_exists(&tree, &relative);
                             walk::insert_node(&mut tree, &relative, is_dir);
-                            if already_in_tree { "modify" } else { "create" }
+                            if already_in_tree {
+                                "modify"
+                            } else {
+                                "create"
+                            }
                         } else {
                             walk::remove_node(&mut tree, &relative);
                             "remove"

@@ -53,8 +53,7 @@ pub async fn delete_folder(
     }
 
     // Prevent deleting the root
-    let root_canon = dunce::canonicalize(&state.root)
-        .map_err(|e| AppError::Internal(e.into()))?;
+    let root_canon = dunce::canonicalize(&state.root).map_err(|e| AppError::Internal(e.into()))?;
     if resolved == root_canon {
         return Err(AppError::Forbidden("cannot delete root directory".into()));
     }
@@ -79,8 +78,7 @@ pub async fn rename_folder(
     }
 
     // Prevent renaming the root directory
-    let root_canon = dunce::canonicalize(&state.root)
-        .map_err(|e| AppError::Internal(e.into()))?;
+    let root_canon = dunce::canonicalize(&state.root).map_err(|e| AppError::Internal(e.into()))?;
     if from == root_canon {
         return Err(AppError::Forbidden("cannot rename root directory".into()));
     }

@@ -9,22 +9,19 @@ pub fn resolve_path(root: &Path, relative: &str) -> Result<PathBuf, AppError> {
         return Ok(root.to_path_buf());
     }
 
-    let cleaned = relative
-        .trim_start_matches('/')
-        .trim_start_matches('\\');
+    let cleaned = relative.trim_start_matches('/').trim_start_matches('\\');
 
     let candidate = root.join(cleaned);
 
     let canonical = if candidate.exists() {
-        dunce::canonicalize(&candidate).map_err(|e| {
-            AppError::Internal(anyhow::anyhow!("canonicalize failed: {e}"))
-        })?
+        dunce::canonicalize(&candidate)
+            .map_err(|e| AppError::Internal(anyhow::anyhow!("canonicalize failed: {e}")))?
     } else {
         // For new files that don't exist yet, canonicalize the parent and
         // append the filename.
-        let parent = candidate.parent().ok_or_else(|| {
-            AppError::BadRequest("invalid path".into())
-        })?;
+        let parent = candidate
+            .parent()
+            .ok_or_else(|| AppError::BadRequest("invalid path".into()))?;
         let parent_canon = if parent.exists() {
             dunce::canonicalize(parent).map_err(|e| {
                 AppError::Internal(anyhow::anyhow!("canonicalize parent failed: {e}"))
@@ -32,7 +29,11 @@ pub fn resolve_path(root: &Path, relative: &str) -> Result<PathBuf, AppError> {
         } else {
             // Parent doesn't exist either — still check it's under root
             let mut p = root.to_path_buf();
-            for component in Path::new(cleaned).parent().unwrap_or(Path::new("")).components() {
+            for component in Path::new(cleaned)
+                .parent()
+                .unwrap_or(Path::new(""))
+                .components()
+            {
                 match component {
                     std::path::Component::Normal(c) => p.push(c),
                     std::path::Component::ParentDir => {
@@ -49,9 +50,8 @@ pub fn resolve_path(root: &Path, relative: &str) -> Result<PathBuf, AppError> {
         parent_canon.join(filename)
     };
 
-    let root_canon = dunce::canonicalize(root).map_err(|e| {
-        AppError::Internal(anyhow::anyhow!("canonicalize root failed: {e}"))
-    })?;
+    let root_canon = dunce::canonicalize(root)
+        .map_err(|e| AppError::Internal(anyhow::anyhow!("canonicalize root failed: {e}")))?;
 
     if !canonical.starts_with(&root_canon) {
         return Err(AppError::Forbidden("path traversal blocked".into()));

@@ -66,10 +66,7 @@ pub fn walk_tree(root: &Path, config: &FilesystemConfig) -> Vec<FileNode> {
             continue;
         }
 
-        let name = relative
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("");
+        let name = relative.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
         let parent = entry_path.parent().unwrap_or(root).to_path_buf();
         let rel_str = relative.to_string_lossy().replace('\\', "/");
@@ -96,12 +93,10 @@ pub fn walk_tree(root: &Path, config: &FilesystemConfig) -> Vec<FileNode> {
 
     // Sort each directory's children: folders first, then alphabetical
     for children in dirs.values_mut() {
-        children.sort_by(|a, b| {
-            match (&a.node_type, &b.node_type) {
-                (NodeType::Dir, NodeType::File) => std::cmp::Ordering::Less,
-                (NodeType::File, NodeType::Dir) => std::cmp::Ordering::Greater,
-                _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
-            }
+        children.sort_by(|a, b| match (&a.node_type, &b.node_type) {
+            (NodeType::Dir, NodeType::File) => std::cmp::Ordering::Less,
+            (NodeType::File, NodeType::Dir) => std::cmp::Ordering::Greater,
+            _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
         });
     }
 
@@ -116,9 +111,10 @@ pub fn walk_tree(root: &Path, config: &FilesystemConfig) -> Vec<FileNode> {
         let collected = dirs.remove(dir_path).unwrap_or_default();
         let parent = dir_path.parent().unwrap_or(root).to_path_buf();
         if let Some(siblings) = dirs.get_mut(&parent) {
-            if let Some(node) = siblings.iter_mut().find(|n| {
-                n.node_type == NodeType::Dir && dir_path.ends_with(&n.name)
-            }) {
+            if let Some(node) = siblings
+                .iter_mut()
+                .find(|n| n.node_type == NodeType::Dir && dir_path.ends_with(&n.name))
+            {
                 node.children = Some(collected);
             }
         }
@@ -168,7 +164,11 @@ fn insert_recursive(nodes: &mut Vec<FileNode>, parts: &[&str], full_path: &str, 
             nodes.push(FileNode {
                 name: parts[0].to_string(),
                 path: full_path.to_string(),
-                node_type: if is_dir { NodeType::Dir } else { NodeType::File },
+                node_type: if is_dir {
+                    NodeType::Dir
+                } else {
+                    NodeType::File
+                },
                 children: if is_dir { Some(Vec::new()) } else { None },
             });
         }
@@ -177,7 +177,10 @@ fn insert_recursive(nodes: &mut Vec<FileNode>, parts: &[&str], full_path: &str, 
 
     // Find or create the intermediate directory
     let dir_name = parts[0];
-    let dir_node = if let Some(pos) = nodes.iter().position(|n| n.name == dir_name && n.node_type == NodeType::Dir) {
+    let dir_node = if let Some(pos) = nodes
+        .iter()
+        .position(|n| n.name == dir_name && n.node_type == NodeType::Dir)
+    {
         &mut nodes[pos]
     } else {
         // Compute correct path based on depth.
@@ -230,11 +233,9 @@ fn remove_recursive(nodes: &mut Vec<FileNode>, parts: &[&str]) -> bool {
 }
 
 fn sort_children(nodes: &mut [FileNode]) {
-    nodes.sort_by(|a, b| {
-        match (&a.node_type, &b.node_type) {
-            (NodeType::Dir, NodeType::File) => std::cmp::Ordering::Less,
-            (NodeType::File, NodeType::Dir) => std::cmp::Ordering::Greater,
-            _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
-        }
+    nodes.sort_by(|a, b| match (&a.node_type, &b.node_type) {
+        (NodeType::Dir, NodeType::File) => std::cmp::Ordering::Less,
+        (NodeType::File, NodeType::Dir) => std::cmp::Ordering::Greater,
+        _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
     });
 }

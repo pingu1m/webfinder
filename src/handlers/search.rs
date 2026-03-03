@@ -89,11 +89,9 @@ async fn search_content(
     let needle = needle.to_string();
 
     // Run content search on blocking thread pool
-    let results = tokio::task::spawn_blocking(move || {
-        content_grep(&root, &config, &needle)
-    })
-    .await
-    .map_err(|e| AppError::Internal(anyhow::anyhow!("search task failed: {e}")))?;
+    let results = tokio::task::spawn_blocking(move || content_grep(&root, &config, &needle))
+        .await
+        .map_err(|e| AppError::Internal(anyhow::anyhow!("search task failed: {e}")))?;
 
     Ok(Json(results))
 }
@@ -131,10 +129,7 @@ fn content_grep(
             }
         }
 
-        let name = path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("");
+        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
         // Quick size check
         if let Ok(meta) = path.metadata() {

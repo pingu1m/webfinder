@@ -22,10 +22,9 @@ pub async fn static_handler(uri: Uri) -> Response {
     } else {
         // SPA fallback: serve index.html for any non-API route
         match FrontendAssets::get("index.html") {
-            Some(content) => Html(
-                String::from_utf8_lossy(&content.data).into_owned(),
-            )
-            .into_response(),
+            Some(content) => {
+                Html(String::from_utf8_lossy(&content.data).into_owned()).into_response()
+            }
             None => (StatusCode::NOT_FOUND, "frontend not built").into_response(),
         }
     }

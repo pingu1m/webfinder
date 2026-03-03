@@ -210,9 +210,7 @@ fn compute_etag(mtime: std::time::SystemTime, size: u64) -> String {
 }
 
 fn humanize_time(t: std::time::SystemTime) -> String {
-    let duration = t
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default();
+    let duration = t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
     let secs = duration.as_secs();
     // ISO 8601 approximation
     chrono_from_epoch(secs)
@@ -228,9 +226,7 @@ fn chrono_from_epoch(secs: u64) -> String {
 
     // Approximate date from days since epoch (good enough for display)
     let (year, month, day) = days_to_ymd(days);
-    format!(
-        "{year:04}-{month:02}-{day:02}T{hours:02}:{minutes:02}:{seconds:02}Z"
-    )
+    format!("{year:04}-{month:02}-{day:02}T{hours:02}:{minutes:02}:{seconds:02}Z")
 }
 
 fn days_to_ymd(mut days: u64) -> (u64, u64, u64) {

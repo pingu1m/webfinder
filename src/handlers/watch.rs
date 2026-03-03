@@ -5,10 +5,7 @@ use axum::response::Response;
 use crate::state::AppState;
 
 /// WS /api/watch — stream filesystem events.
-pub async fn watch_ws(
-    State(state): State<AppState>,
-    ws: WebSocketUpgrade,
-) -> Response {
+pub async fn watch_ws(State(state): State<AppState>, ws: WebSocketUpgrade) -> Response {
     ws.on_upgrade(move |socket| handle_watch(socket, state))
 }
 
@@ -59,7 +56,9 @@ async fn handle_run_stream(mut socket: WebSocket, state: AppState, id: String) {
             None => {
                 let _ = socket
                     .send(Message::Text(
-                        serde_json::json!({"error": "run not found"}).to_string().into(),
+                        serde_json::json!({"error": "run not found"})
+                            .to_string()
+                            .into(),
                     ))
                     .await;
                 return;
