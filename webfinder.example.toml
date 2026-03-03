@@ -1,0 +1,60 @@
+# WebFinder Configuration
+# ========================
+# Config is searched in order:
+#   1. ./webfinder.toml              (project root)
+#   2. --config <path>               (CLI flag)
+#   3. $XDG_CONFIG_HOME/webfinder/config.toml
+#   4. ~/.config/webfinder/config.toml
+
+[server]
+host = "127.0.0.1"
+port = 0                          # 0 = auto-select a free port
+open_browser = true
+
+[user]
+name = "Felipe Gusmao"
+email = "fgusmao@zynga.com"
+
+# TODO: git integration — attach repos, view status/diff/commit
+[git]
+repos = []
+
+# Runners — define commands to execute files by extension.
+# {file} is replaced with the absolute path to the file.
+
+[runners.python]
+command = "python3"
+args = ["{file}"]
+extensions = ["py"]
+
+[runners.node]
+command = "node"
+args = ["{file}"]
+extensions = ["js", "mjs"]
+
+[runners.typescript]
+command = "npx"
+args = ["tsx", "{file}"]
+extensions = ["ts", "tsx"]
+
+[runners.rust]
+command = "cargo"
+args = ["script", "{file}"]
+extensions = ["rs"]
+
+[runners.shell]
+command = "bash"
+args = ["{file}"]
+extensions = ["sh", "bash"]
+
+[editor]
+font_size = 14
+tab_size = 2
+word_wrap = "on"
+theme = "vs-dark"
+save_debounce_ms = 150
+
+[filesystem]
+show_hidden = false
+max_file_size_bytes = 10485760    # 10 MB
+exclude_patterns = ["node_modules", ".git", "target", "__pycache__"]

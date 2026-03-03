@@ -1,0 +1,45 @@
+[package]
+name = "webfinder"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "A fast, web-based file explorer launched from the command line"
+
+[dependencies]
+axum = { version = "0.8", features = ["ws"] }
+tokio = { version = "1", features = ["full"] }
+tower-http = { version = "0.6", features = ["cors", "trace", "compression-gzip"] }
+bytes = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+clap = { version = "4", features = ["derive"] }
+rust-embed = { version = "8", features = ["compression"] }
+mime_guess = "2"
+notify = "7"
+notify-debouncer-mini = "0.5"
+ignore = "0.4"
+content_inspector = "0.2"
+dunce = "1"
+uuid = { version = "1", features = ["v4"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+open = "5"
+dirs = "6"
+anyhow = "1"
+futures-util = "0.3"
+tokio-stream = "0.1"
+grep-regex = "0.1"
+grep-searcher = "0.1"
+grep-matcher = "0.1"
+
+[dev-dependencies]
+reqwest = { version = "0.12", features = ["json"] }
+tokio-tungstenite = "0.26"
+tempfile = "3"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
