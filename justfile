@@ -4,6 +4,8 @@
 default:
     @just --list
 
+# Felipe Here
+
 # ─── Build ───────────────────────────────────────────────────────────────────
 
 # Install frontend dependencies
@@ -25,6 +27,7 @@ build-release: frontend-build
 # Install webfinder to ~/.cargo/bin
 install: frontend-build
     cargo install --path .
+
 
 # ─── Dev ─────────────────────────────────────────────────────────────────────
 

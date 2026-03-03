@@ -55,12 +55,65 @@ test.describe("File Operations", () => {
     await page.getByText("hello.txt").click();
     await expect(page.getByText("Open Files")).toBeVisible({ timeout: 3000 });
 
-    // Click close all button (X next to "Open Files")
-    const closeAllBtn = page
-      .locator("button[title='Close all']");
+    const closeAllBtn = page.locator("button[title='Close all']");
     await closeAllBtn.click();
 
     await expect(page.getByText("Select a file to edit")).toBeVisible({
+      timeout: 3000,
+    });
+  });
+
+  test("opening same file twice does not duplicate tab", async ({ page }) => {
+    await page.getByText("hello.txt").first().click();
+    await expect(page.locator(".border-b-primary").getByText("hello.txt")).toBeVisible({
+      timeout: 5000,
+    });
+
+    // Click again in the sidebar
+    await page.getByText("hello.txt").first().click();
+    await page.waitForTimeout(500);
+
+    // Should only have one tab for hello.txt
+    const tabs = page.locator("[class*='cursor-pointer'][class*='select-none']");
+    const helloTabs = tabs.filter({ hasText: "hello.txt" });
+    await expect(helloTabs).toHaveCount(1);
+  });
+
+  test("multiple files can be open simultaneously", async ({ page }) => {
+    await page.getByText("hello.txt").first().click();
+    await expect(page.locator(".border-b-primary").getByText("hello.txt")).toBeVisible({
+      timeout: 5000,
+    });
+
+    await page.getByText("readme.md").first().click();
+    await expect(page.locator(".border-b-primary").getByText("readme.md")).toBeVisible({
+      timeout: 5000,
+    });
+
+    // Both tabs should exist
+    const tabs = page.locator("[class*='cursor-pointer'][class*='select-none']");
+    await expect(tabs.filter({ hasText: "hello.txt" })).toHaveCount(1);
+    await expect(tabs.filter({ hasText: "readme.md" })).toHaveCount(1);
+  });
+
+  test("closing active tab activates previous tab", async ({ page }) => {
+    // Open two files
+    await page.getByText("hello.txt").first().click();
+    await expect(page.locator(".border-b-primary").getByText("hello.txt")).toBeVisible({
+      timeout: 5000,
+    });
+    await page.getByText("readme.md").first().click();
+    await expect(page.locator(".border-b-primary").getByText("readme.md")).toBeVisible({
+      timeout: 5000,
+    });
+
+    // Close the active (readme.md) tab
+    const activeTab = page.locator(".border-b-primary");
+    await activeTab.hover();
+    await activeTab.locator("button").click();
+
+    // hello.txt should become active
+    await expect(page.locator(".border-b-primary").getByText("hello.txt")).toBeVisible({
       timeout: 3000,
     });
   });

@@ -7,7 +7,12 @@ import type {
   SearchResult,
 } from "./types";
 
-const BASE = "";
+// Derive base path from the page URL so API calls work behind a reverse proxy.
+// e.g. if loaded from /api/v1/workspace/default/proxy/8819/, BASE becomes that path.
+const BASE = (() => {
+  const path = window.location.pathname;
+  return path.endsWith("/") ? path.slice(0, -1) : path;
+})();
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${url}`, init);
@@ -132,6 +137,24 @@ export async function getInfo(): Promise<InfoResponse> {
   return fetchJson("/api/info");
 }
 
+// Settings
+export async function putSettings(
+  settings: Partial<{
+    auto_save: boolean;
+    font_size: number;
+    tab_size: number;
+    word_wrap: string;
+    theme: string;
+  }>
+): Promise<void> {
+  const res = await fetch(`${BASE}/api/settings`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(settings),
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+}
+
 // Runner
 export async function startRun(path: string): Promise<RunResponse> {
   return fetchJson("/api/run", {
@@ -151,17 +174,56 @@ export async function getRunStatus(id: string): Promise<RunStatusResponse> {
 }
 
 // WebSocket helpers
+
+export interface ManagedSocket {
+  close: () => void;
+}
+
+/**
+ * Connect to the file-watcher WebSocket with automatic reconnect on disconnect.
+ * Returns a handle with a `close()` method to permanently disconnect.
+ */
 export function connectWatch(
   onEvent: (event: { kind: string; path: string }) => void
-): WebSocket {
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const ws = new WebSocket(`${protocol}//${window.location.host}/api/watch`);
-  ws.onmessage = (e) => {
-    try {
-      onEvent(JSON.parse(e.data));
-    } catch {}
+): ManagedSocket {
+  let ws: WebSocket | null = null;
+  let closed = false;
+  let retryMs = 1000;
+
+  function connect() {
+    if (closed) return;
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    ws = new WebSocket(`${protocol}//${window.location.host}${BASE}/api/watch`);
+
+    ws.onopen = () => {
+      retryMs = 1000;
+    };
+
+    ws.onmessage = (e) => {
+      try {
+        onEvent(JSON.parse(e.data));
+      } catch { /* malformed message */ }
+    };
+
+    ws.onclose = () => {
+      if (closed) return;
+      setTimeout(connect, retryMs);
+      retryMs = Math.min(retryMs * 2, 30_000);
+    };
+
+    ws.onerror = () => {
+      ws?.close();
+    };
+  }
+
+  connect();
+
+  return {
+    close: () => {
+      closed = true;
+      ws?.close();
+    },
   };
-  return ws;
 }
 
 export function connectRunStream(
@@ -170,12 +232,12 @@ export function connectRunStream(
 ): WebSocket {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const ws = new WebSocket(
-    `${protocol}//${window.location.host}/api/run/${id}/stream`
+    `${protocol}//${window.location.host}${BASE}/api/run/${id}/stream`
   );
   ws.onmessage = (e) => {
     try {
       onLine(JSON.parse(e.data));
-    } catch {}
+    } catch { /* malformed message */ }
   };
   return ws;
 }

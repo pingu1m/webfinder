@@ -27,6 +27,10 @@ struct Cli {
     #[arg(short, long)]
     port: Option<u16>,
 
+    /// Host/IP to bind to (e.g. 0.0.0.0 for all interfaces)
+    #[arg(long)]
+    host: Option<String>,
+
     /// Don't open browser automatically
     #[arg(long)]
     no_open: bool,
@@ -52,6 +56,9 @@ async fn main() -> anyhow::Result<()> {
     // CLI overrides
     if let Some(port) = cli.port {
         config.server.port = port;
+    }
+    if let Some(host) = cli.host {
+        config.server.host = host;
     }
     if cli.no_open {
         config.server.open_browser = false;

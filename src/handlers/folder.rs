@@ -77,6 +77,14 @@ pub async fn rename_folder(
             body.from
         )));
     }
+
+    // Prevent renaming the root directory
+    let root_canon = dunce::canonicalize(&state.root)
+        .map_err(|e| AppError::Internal(e.into()))?;
+    if from == root_canon {
+        return Err(AppError::Forbidden("cannot rename root directory".into()));
+    }
+
     if to.exists() {
         return Err(AppError::Conflict(format!("{} already exists", body.to)));
     }

@@ -22,16 +22,30 @@ export function OutputPanel({
   const [collapsed, setCollapsed] = useState(true);
   const [height, setHeight] = useState(200);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ startY: number; startHeight: number } | null>(null);
 
-  // Auto-expand when running starts
+  // Drag-resize state and listeners stored in refs so the cleanup
+  // effect can always reach them, even if the browser loses focus
+  // before mouseup fires.
+  const dragStateRef = useRef<{ startY: number; startHeight: number } | null>(null);
+  const handlersRef = useRef<{ move: (e: MouseEvent) => void; up: () => void } | null>(null);
+
+  // Cleanup drag listeners on unmount (or if they leaked)
+  useEffect(() => {
+    return () => {
+      if (handlersRef.current) {
+        document.removeEventListener("mousemove", handlersRef.current.move);
+        document.removeEventListener("mouseup", handlersRef.current.up);
+        handlersRef.current = null;
+      }
+    };
+  }, []);
+
   useEffect(() => {
     if (running || lines.length > 0) {
       setCollapsed(false);
     }
   }, [running, lines.length]);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -40,17 +54,28 @@ export function OutputPanel({
 
   const handleDragStart = useCallback(
     (e: React.MouseEvent) => {
-      dragRef.current = { startY: e.clientY, startHeight: height };
+      // Remove any stale listeners from a previous drag
+      if (handlersRef.current) {
+        document.removeEventListener("mousemove", handlersRef.current.move);
+        document.removeEventListener("mouseup", handlersRef.current.up);
+      }
+
+      dragStateRef.current = { startY: e.clientY, startHeight: height };
+
       const handleMove = (e: MouseEvent) => {
-        if (!dragRef.current) return;
-        const delta = dragRef.current.startY - e.clientY;
-        setHeight(Math.max(100, Math.min(600, dragRef.current.startHeight + delta)));
+        if (!dragStateRef.current) return;
+        const delta = dragStateRef.current.startY - e.clientY;
+        setHeight(Math.max(100, Math.min(600, dragStateRef.current.startHeight + delta)));
       };
+
       const handleUp = () => {
-        dragRef.current = null;
+        dragStateRef.current = null;
         document.removeEventListener("mousemove", handleMove);
         document.removeEventListener("mouseup", handleUp);
+        handlersRef.current = null;
       };
+
+      handlersRef.current = { move: handleMove, up: handleUp };
       document.addEventListener("mousemove", handleMove);
       document.addEventListener("mouseup", handleUp);
     },
@@ -63,7 +88,6 @@ export function OutputPanel({
 
   return (
     <div className="border-t bg-background shrink-0">
-      {/* Drag handle */}
       {!collapsed && (
         <div
           className="h-1 cursor-row-resize hover:bg-primary/20 transition-colors"
@@ -71,7 +95,6 @@ export function OutputPanel({
         />
       )}
 
-      {/* Header */}
       <div className="flex items-center justify-between px-3 py-1 border-b bg-muted/30">
         <button
           className="flex items-center gap-1.5 text-xs font-medium"
@@ -109,11 +132,10 @@ export function OutputPanel({
         </div>
       </div>
 
-      {/* Output content */}
       {!collapsed && (
         <div
           ref={scrollRef}
-          className="overflow-auto font-mono text-xs p-3 bg-[#1e1e1e] text-[#d4d4d4]"
+          className="overflow-auto font-mono text-xs p-3 bg-muted/50 text-foreground"
           style={{ height }}
         >
           {lines.map((line, i) => (
@@ -121,7 +143,7 @@ export function OutputPanel({
               key={i}
               className={cn(
                 "whitespace-pre-wrap",
-                line.stream === "stderr" && "text-red-400"
+                line.stream === "stderr" && "text-destructive"
               )}
             >
               {line.data}

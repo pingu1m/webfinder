@@ -1,3 +1,4 @@
+use axum::extract::DefaultBodyLimit;
 use axum::routing::{delete, get, post, put};
 use axum::Router;
 use tower_http::compression::CompressionLayer;
@@ -25,8 +26,9 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/folder/rename", post(handlers::folder::rename_folder))
         // Search
         .route("/api/search", get(handlers::search::search))
-        // Info
+        // Info & Settings
         .route("/api/info", get(handlers::info::get_info))
+        .route("/api/settings", put(handlers::settings::put_settings))
         // Runner
         .route("/api/run", post(handlers::run::start_run))
         .route("/api/run/{id}", delete(handlers::run::stop_run))
@@ -39,6 +41,7 @@ pub fn build_router(state: AppState) -> Router {
     Router::new()
         .merge(api)
         .fallback(static_handler)
+        .layer(DefaultBodyLimit::max(10 * 1024 * 1024)) // 10 MB
         .layer(CompressionLayer::new())
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())

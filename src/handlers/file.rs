@@ -54,10 +54,11 @@ pub async fn get_file(
     let metadata = tokio::fs::metadata(&resolved).await?;
     let size = metadata.len();
 
-    if size > state.config.filesystem.max_file_size_bytes {
+    let max_file_size = state.config.read().await.filesystem.max_file_size_bytes;
+    if size > max_file_size {
         return Err(AppError::PayloadTooLarge(format!(
             "file is {} bytes, max is {}",
-            size, state.config.filesystem.max_file_size_bytes
+            size, max_file_size
         )));
     }
 

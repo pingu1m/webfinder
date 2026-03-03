@@ -55,8 +55,13 @@ async fn search_filename(
     Ok(Json(results))
 }
 
+const MAX_RESULTS: usize = 500;
+
 fn collect_filename_matches(nodes: &[FileNode], needle: &str, results: &mut Vec<SearchResult>) {
     for node in nodes {
+        if results.len() >= MAX_RESULTS {
+            return;
+        }
         if node.name.to_lowercase().contains(needle) {
             results.push(SearchResult {
                 path: node.path.clone(),
@@ -80,7 +85,7 @@ async fn search_content(
     needle: &str,
 ) -> Result<Json<Vec<SearchResult>>, AppError> {
     let root = state.root.clone();
-    let config = state.config.filesystem.clone();
+    let config = state.config.read().await.filesystem.clone();
     let needle = needle.to_string();
 
     // Run content search on blocking thread pool
@@ -115,13 +120,21 @@ fn content_grep(
             continue;
         }
 
+        // Skip if any ancestor matches an exclude pattern
+        if let Ok(relative) = path.strip_prefix(root) {
+            let excluded = relative.components().any(|c| {
+                let name = c.as_os_str().to_str().unwrap_or("");
+                config.exclude_patterns.iter().any(|p| p == name)
+            });
+            if excluded {
+                continue;
+            }
+        }
+
         let name = path
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("");
-        if config.exclude_patterns.iter().any(|p| name == p) {
-            continue;
-        }
 
         // Quick size check
         if let Ok(meta) = path.metadata() {

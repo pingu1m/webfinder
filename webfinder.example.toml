@@ -52,6 +52,7 @@ font_size = 14
 tab_size = 2
 word_wrap = "on"
 theme = "vs-dark"
+auto_save = false                 # true = save on every keystroke (debounced)
 save_debounce_ms = 150
 
 [filesystem]

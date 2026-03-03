@@ -16,6 +16,10 @@ pub struct InfoResponse {
 pub struct ConfigSummary {
     pub runners: Vec<String>,
     pub editor_theme: String,
+    pub auto_save: bool,
+    pub font_size: u32,
+    pub tab_size: u32,
+    pub word_wrap: String,
     pub show_hidden: bool,
 }
 
@@ -28,7 +32,8 @@ pub async fn get_info(State(state): State<AppState>) -> Json<InfoResponse> {
         .unwrap_or("unknown")
         .to_string();
 
-    let runners: Vec<String> = state.config.runners.keys().cloned().collect();
+    let config = state.config.read().await;
+    let runners: Vec<String> = config.runners.keys().cloned().collect();
 
     Json(InfoResponse {
         root: state.root.to_string_lossy().into_owned(),
@@ -36,8 +41,12 @@ pub async fn get_info(State(state): State<AppState>) -> Json<InfoResponse> {
         version: env!("CARGO_PKG_VERSION").to_string(),
         config: ConfigSummary {
             runners,
-            editor_theme: state.config.editor.theme.clone(),
-            show_hidden: state.config.filesystem.show_hidden,
+            editor_theme: config.editor.theme.clone(),
+            auto_save: config.editor.auto_save,
+            font_size: config.editor.font_size,
+            tab_size: config.editor.tab_size,
+            word_wrap: config.editor.word_wrap.clone(),
+            show_hidden: config.filesystem.show_hidden,
         },
     })
 }

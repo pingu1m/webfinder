@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { getTree, connectWatch } from "@/api/client";
+import type { ManagedSocket } from "@/api/client";
 import type { FileNode, FsEvent } from "@/api/types";
 
 function patchTree(nodes: FileNode[], event: FsEvent): FileNode[] {
@@ -56,10 +57,13 @@ function insertIntoTree(
   });
 
   if (!found) {
-    const dirPath = fullPath
-      .split("/")
-      .slice(0, fullPath.split("/").indexOf(dirName) + 1)
-      .join("/");
+    // Compute the correct directory path based on depth, not indexOf.
+    // fullPath has N segments; parts has M remaining. The directory we're
+    // creating is at depth (N - M + 1) from the root.
+    const allSegments = fullPath.split("/");
+    const depth = allSegments.length - parts.length + 1;
+    const dirPath = allSegments.slice(0, depth).join("/");
+
     result.push({
       name: dirName,
       path: dirPath,
@@ -78,9 +82,11 @@ function sortNodes(nodes: FileNode[]): FileNode[] {
   });
 }
 
-export function useFileTree() {
+export function useFileTree(onModifyEvent?: (path: string) => void) {
   const queryClient = useQueryClient();
-  const wsRef = useRef<WebSocket | null>(null);
+  const socketRef = useRef<ManagedSocket | null>(null);
+  const onModifyRef = useRef(onModifyEvent);
+  onModifyRef.current = onModifyEvent;
 
   const query = useQuery({
     queryKey: ["tree"],
@@ -89,17 +95,21 @@ export function useFileTree() {
   });
 
   useEffect(() => {
-    const ws = connectWatch((event) => {
+    const socket = connectWatch((event) => {
       queryClient.setQueryData<FileNode[]>(["tree"], (old) => {
         if (!old) return old;
         return patchTree(old, event as FsEvent);
       });
+
+      if (event.kind === "modify" && onModifyRef.current) {
+        onModifyRef.current(event.path);
+      }
     });
-    wsRef.current = ws;
+    socketRef.current = socket;
 
     return () => {
-      ws.close();
-      wsRef.current = null;
+      socket.close();
+      socketRef.current = null;
     };
   }, [queryClient]);
 

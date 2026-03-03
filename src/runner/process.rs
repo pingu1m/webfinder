@@ -4,13 +4,13 @@ use std::sync::Arc;
 
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
-use tokio::sync::{broadcast, Mutex};
+use tokio::sync::{broadcast, oneshot, Mutex};
 
 use crate::config::RunnerConfig;
 use crate::runner::{OutputLine, RunHandle};
 
 /// Spawn a child process for the given file using the matched runner config.
-/// Returns a RunHandle with the child process and a broadcast sender for output.
+/// Returns a RunHandle that includes a kill channel for graceful termination.
 pub fn spawn_runner(
     runner: &RunnerConfig,
     file_path: &Path,
@@ -35,12 +35,14 @@ pub fn spawn_runner(
 
     let (output_tx, _) = broadcast::channel(1024);
     let exit_code: Arc<Mutex<Option<i32>>> = Arc::new(Mutex::new(None));
+    let (kill_tx, kill_rx) = oneshot::channel::<()>();
 
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
 
     let tx = output_tx.clone();
     let ec = exit_code.clone();
+
     tokio::spawn(async move {
         let stdout_task = tokio::spawn({
             let tx = tx.clone();
@@ -74,23 +76,32 @@ pub fn spawn_runner(
             }
         });
 
+        // Wait for the process to exit naturally, or for a kill request.
+        let code = tokio::select! {
+            result = child.wait() => {
+                result.map(|s| s.code().unwrap_or(-1)).unwrap_or(-1)
+            }
+            _ = kill_rx => {
+                let _ = child.kill().await;
+                child.wait().await.map(|s| s.code().unwrap_or(-1)).unwrap_or(-1)
+            }
+        };
+
+        // Drain remaining output before sending exit event
         let _ = stdout_task.await;
         let _ = stderr_task.await;
 
-        let code = match child.wait().await {
-            Ok(status) => status.code().unwrap_or(-1),
-            Err(_) => -1,
-        };
-
-        // Store exit code
         *ec.lock().await = Some(code);
 
-        // Send exit event on the broadcast channel
         let _ = tx.send(OutputLine {
             stream: "exit".into(),
             data: code.to_string(),
         });
     });
 
-    Ok(RunHandle { output_tx, exit_code })
+    Ok(RunHandle {
+        output_tx,
+        exit_code,
+        kill_tx: Some(kill_tx),
+    })
 }

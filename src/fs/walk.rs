@@ -34,9 +34,9 @@ pub fn walk_tree(root: &Path, config: &FilesystemConfig) -> Vec<FileNode> {
         .git_exclude(true)
         .max_depth(None);
 
-    for pattern in &config.exclude_patterns {
-        let _ = builder.add_ignore(pattern);
-    }
+    // Note: builder.add_ignore() expects a gitignore-format FILE path, not a
+    // pattern string.  Exclude patterns are applied manually below via the
+    // per-entry name check against config.exclude_patterns.
 
     // Collect all entries
     let mut dirs: HashMap<PathBuf, Vec<FileNode>> = HashMap::new();
@@ -56,14 +56,19 @@ pub fn walk_tree(root: &Path, config: &FilesystemConfig) -> Vec<FileNode> {
             Err(_) => continue,
         };
 
-        // Skip excluded patterns
+        // Skip if any path component matches an exclude pattern
+        let dominated = relative.components().any(|c| {
+            let name = c.as_os_str().to_str().unwrap_or("");
+            config.exclude_patterns.iter().any(|p| p == name)
+        });
+        if dominated {
+            continue;
+        }
+
         let name = relative
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("");
-        if config.exclude_patterns.iter().any(|p| name == p) {
-            continue;
-        }
 
         let parent = entry_path.parent().unwrap_or(root).to_path_buf();
         let rel_str = relative.to_string_lossy().replace('\\', "/");
@@ -121,6 +126,29 @@ pub fn walk_tree(root: &Path, config: &FilesystemConfig) -> Vec<FileNode> {
     dirs.remove(&root.to_path_buf()).unwrap_or_default()
 }
 
+/// Check if a node exists in the tree at the given relative path.
+pub fn node_exists(tree: &[FileNode], relative_path: &str) -> bool {
+    let parts: Vec<&str> = relative_path.split('/').collect();
+    exists_recursive(tree, &parts)
+}
+
+fn exists_recursive(nodes: &[FileNode], parts: &[&str]) -> bool {
+    if parts.is_empty() {
+        return false;
+    }
+    for node in nodes {
+        if node.name == parts[0] {
+            if parts.len() == 1 {
+                return true;
+            }
+            if let Some(ref children) = node.children {
+                return exists_recursive(children, &parts[1..]);
+            }
+        }
+    }
+    false
+}
+
 /// Insert a node into the tree at the given relative path.
 pub fn insert_node(tree: &mut Vec<FileNode>, relative_path: &str, is_dir: bool) {
     let parts: Vec<&str> = relative_path.split('/').collect();
@@ -151,11 +179,15 @@ fn insert_recursive(nodes: &mut Vec<FileNode>, parts: &[&str], full_path: &str, 
     let dir_node = if let Some(pos) = nodes.iter().position(|n| n.name == dir_name && n.node_type == NodeType::Dir) {
         &mut nodes[pos]
     } else {
-        let dir_path_parts: Vec<&str> = full_path.splitn(parts.len(), '/').collect();
-        let dir_path = dir_path_parts.first().copied().unwrap_or(dir_name);
+        // Compute correct path based on depth.
+        // full_path has N segments; parts has M remaining.  The directory we're
+        // creating is at depth (N - M + 1) from the root.
+        let all_segments: Vec<&str> = full_path.split('/').collect();
+        let depth = all_segments.len() - parts.len() + 1;
+        let dir_path = all_segments[..depth].join("/");
         nodes.push(FileNode {
             name: dir_name.to_string(),
-            path: dir_path.to_string(),
+            path: dir_path,
             node_type: NodeType::Dir,
             children: Some(Vec::new()),
         });

@@ -1,12 +1,16 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { SidebarCustom } from "@/components/sidebar-custom";
+import { SidebarCustom, SIDEBAR_DEFAULT_WIDTH } from "@/components/sidebar-custom";
 import { EditorPanel } from "@/components/editor-panel";
 import { OutputPanel } from "@/components/output-panel";
 import { ContextMenu, NewItemDialog } from "@/components/context-menu";
+import { FileConflictDialog } from "@/components/file-conflict-dialog";
+import { SettingsPanel } from "@/components/settings-panel";
 import { useFileTree } from "@/hooks/use-file-tree";
 import { useRunner } from "@/hooks/use-runner";
+import { cancelFileTimer, removeFileQuery } from "@/hooks/use-file-content";
 import { useEditorStore } from "@/stores/editor-store";
+import { useSettingsStore } from "@/stores/settings-store";
 import {
   getInfo,
   getFile,
@@ -28,19 +32,111 @@ type DialogMode =
   | null;
 
 export default function App() {
-  const { data: tree = [] } = useFileTree();
+  const queryClient = useQueryClient();
+
+  // Data selectors — only re-render when these specific values change
+  const openFiles = useEditorStore((s) => s.openFiles);
+  const activeFile = useEditorStore((s) => s.activeFile);
+  const conflict = useEditorStore((s) => s.conflict);
+
+  // Actions — stable references, never trigger re-renders
+  const openFile = useEditorStore((s) => s.openFile);
+  const storeCloseFile = useEditorStore((s) => s.closeFile);
+  const storeCloseAll = useEditorStore((s) => s.closeAllFiles);
+  const closeFilesUnderPath = useEditorStore((s) => s.closeFilesUnderPath);
+  const renameOpenFile = useEditorStore((s) => s.renameOpenFile);
+  const isOpen = useEditorStore((s) => s.isOpen);
+  const isRecentSave = useEditorStore((s) => s.isRecentSave);
+  const setConflict = useEditorStore((s) => s.setConflict);
+  const setDirty = useEditorStore((s) => s.setDirty);
+  const clearPendingContent = useEditorStore((s) => s.clearPendingContent);
+
+  // Safe close: confirm if file has unsaved changes, then clean up all caches.
+  const safeCloseFile = useCallback(
+    (path: string) => {
+      const file = useEditorStore.getState().openFiles.find((f) => f.path === path);
+      if (
+        file?.dirty &&
+        !window.confirm(`"${path.split("/").pop()}" has unsaved changes. Close anyway?`)
+      ) {
+        return;
+      }
+      cancelFileTimer(path);
+      storeCloseFile(path);
+      removeFileQuery(path);
+    },
+    [storeCloseFile]
+  );
+
+  const safeCloseAllFiles = useCallback(() => {
+    const dirty = useEditorStore.getState().openFiles.filter((f) => f.dirty);
+    if (
+      dirty.length > 0 &&
+      !window.confirm(
+        `${dirty.length} file(s) have unsaved changes. Close all anyway?`
+      )
+    ) {
+      return;
+    }
+    const files = useEditorStore.getState().openFiles;
+    for (const f of files) {
+      cancelFileTimer(f.path);
+      removeFileQuery(f.path);
+    }
+    storeCloseAll();
+  }, [storeCloseAll]);
+
+  const handleExternalModify = useCallback(
+    (path: string) => {
+      if (!isOpen(path)) return;
+      if (isRecentSave(path)) return;
+
+      const file = useEditorStore.getState().openFiles.find((f) => f.path === path);
+      if (file?.dirty) {
+        setConflict(path);
+      } else {
+        clearPendingContent(path);
+        queryClient.invalidateQueries({ queryKey: ["file", path] });
+      }
+    },
+    [isOpen, isRecentSave, setConflict, clearPendingContent, queryClient]
+  );
+
+  const { data: tree = [] } = useFileTree(handleExternalModify);
   const { data: info } = useQuery({
     queryKey: ["info"],
     queryFn: getInfo,
     staleTime: Infinity,
   });
-  const queryClient = useQueryClient();
+  const initSettings = useSettingsStore((s) => s.init);
+  const currentTheme = useSettingsStore((s) => s.theme);
+  useEffect(() => {
+    if (info) initSettings(info.config);
+  }, [info, initSettings]);
 
-  const { openFiles, activeFile, openFile, closeFile, closeAllFiles } =
-    useEditorStore();
+  useEffect(() => {
+    const isDark = currentTheme === "vs-dark" || currentTheme === "hc-black";
+    document.documentElement.classList.toggle("dark", isDark);
+  }, [currentTheme]);
+
   const runner = useRunner();
 
+  const STORAGE_KEY = "webfinder-sidebar-width";
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const n = Number(stored);
+      if (Number.isFinite(n) && n >= 180 && n <= 500) return n;
+    }
+    return SIDEBAR_DEFAULT_WIDTH;
+  });
+  const handleSidebarResize = useCallback((w: number) => {
+    setSidebarWidth(w);
+    localStorage.setItem(STORAGE_KEY, String(w));
+  }, []);
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -48,10 +144,8 @@ export default function App() {
   } | null>(null);
   const [dialog, setDialog] = useState<DialogMode>(null);
 
-  // Derive runnable extensions from info
   const runnableExtensions = useMemo(() => {
     if (!info) return [];
-    // We'll fetch the full config from the runners - for now use common defaults
     return ["py", "js", "mjs", "ts", "tsx", "sh", "bash", "rs"];
   }, [info]);
 
@@ -88,7 +182,6 @@ export default function App() {
     [runner]
   );
 
-  // Dialog actions
   const handleDialogConfirm = useCallback(
     async (value: string) => {
       if (!dialog) return;
@@ -115,8 +208,11 @@ export default function App() {
             const newPath = parts.join("/");
             if (dialog.node.type === "dir") {
               await renameFolder(oldPath, newPath);
+              closeFilesUnderPath(oldPath);
             } else {
               await renameFile(oldPath, newPath);
+              renameOpenFile(oldPath, newPath);
+              queryClient.removeQueries({ queryKey: ["file", oldPath] });
             }
             queryClient.invalidateQueries({ queryKey: ["tree"] });
             break;
@@ -139,7 +235,7 @@ export default function App() {
 
       setDialog(null);
     },
-    [dialog, queryClient, openFile]
+    [dialog, queryClient, openFile, renameOpenFile, closeFilesUnderPath]
   );
 
   const handleDelete = useCallback(
@@ -152,17 +248,41 @@ export default function App() {
       try {
         if (node.type === "dir") {
           await deleteFolder(node.path);
+          const prefix = node.path.endsWith("/") ? node.path : node.path + "/";
+          const affected = useEditorStore.getState().openFiles.filter(
+            (f) => f.path.startsWith(prefix)
+          );
+          for (const f of affected) {
+            cancelFileTimer(f.path);
+            removeFileQuery(f.path);
+          }
+          closeFilesUnderPath(node.path);
         } else {
           await deleteFile(node.path);
-          closeFile(node.path);
+          cancelFileTimer(node.path);
+          storeCloseFile(node.path);
+          removeFileQuery(node.path);
         }
         queryClient.invalidateQueries({ queryKey: ["tree"] });
       } catch (err) {
         console.error("delete failed:", err);
       }
     },
-    [queryClient, closeFile]
+    [queryClient, storeCloseFile, closeFilesUnderPath]
   );
+
+  const handleConflictKeep = useCallback(() => {
+    setConflict(null);
+  }, [setConflict]);
+
+  const handleConflictLoad = useCallback(() => {
+    if (conflict) {
+      clearPendingContent(conflict);
+      setDirty(conflict, false);
+      queryClient.invalidateQueries({ queryKey: ["file", conflict] });
+    }
+    setConflict(null);
+  }, [conflict, setConflict, clearPendingContent, setDirty, queryClient]);
 
   const dialogTitle = dialog
     ? dialog.type === "new-file"
@@ -183,35 +303,48 @@ export default function App() {
     : "";
 
   return (
-    <div className="flex h-screen w-screen bg-background text-foreground dark">
+    <div className="flex h-screen w-screen bg-background text-foreground">
       <SidebarCustom
         tree={tree}
         selectedFile={activeFile}
         openFiles={openFiles}
-        onSelectFile={handleSelectFile}
-        onCloseFile={closeFile}
-        onCloseAllFiles={closeAllFiles}
+        onSelectFile={(path) => {
+          setShowSettings(false);
+          handleSelectFile(path);
+        }}
+        onCloseFile={safeCloseFile}
+        onCloseAllFiles={safeCloseAllFiles}
         onContextMenu={handleContextMenu}
         onPrefetch={handlePrefetch}
         onNewFile={() => setDialog({ type: "new-file", parentPath: "" })}
         onNewFolder={() => setDialog({ type: "new-folder", parentPath: "" })}
+        onSettings={() => setShowSettings(true)}
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+        width={sidebarWidth}
+        onResize={handleSidebarResize}
       />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <EditorPanel
-          runnableExtensions={runnableExtensions}
-          onRun={handleRun}
-          isRunning={runner.running}
-        />
-        <OutputPanel
-          lines={runner.lines}
-          running={runner.running}
-          exitCode={runner.exitCode}
-          onStop={runner.stop}
-          onClear={runner.clear}
-        />
+        {showSettings ? (
+          <SettingsPanel onClose={() => setShowSettings(false)} />
+        ) : (
+          <>
+            <EditorPanel
+              runnableExtensions={runnableExtensions}
+              onRun={handleRun}
+              isRunning={runner.running}
+              onCloseFile={safeCloseFile}
+            />
+            <OutputPanel
+              lines={runner.lines}
+              running={runner.running}
+              exitCode={runner.exitCode}
+              onStop={runner.stop}
+              onClear={runner.clear}
+            />
+          </>
+        )}
       </div>
 
       <ContextMenu
@@ -235,6 +368,14 @@ export default function App() {
         onConfirm={handleDialogConfirm}
         onCancel={() => setDialog(null)}
       />
+
+      {conflict && (
+        <FileConflictDialog
+          path={conflict}
+          onKeep={handleConflictKeep}
+          onLoadFromDisk={handleConflictLoad}
+        />
+      )}
     </div>
   );
 }

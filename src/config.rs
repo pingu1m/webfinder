@@ -52,6 +52,7 @@ pub struct EditorConfig {
     pub tab_size: u32,
     pub word_wrap: String,
     pub theme: String,
+    pub auto_save: bool,
     pub save_debounce_ms: u64,
 }
 
@@ -113,7 +114,8 @@ impl Default for EditorConfig {
             font_size: 14,
             tab_size: 2,
             word_wrap: "on".into(),
-            theme: "vs-dark".into(),
+            theme: "light".into(),
+            auto_save: false,
             save_debounce_ms: 150,
         }
     }
@@ -143,9 +145,9 @@ impl Config {
     }
 }
 
-/// Search for config in standard locations, in order:
-/// 1. ./webfinder.toml (cwd)
-/// 2. Explicit --config path
+/// Search for config in standard locations, in priority order:
+/// 1. Explicit --config path (highest priority)
+/// 2. ./webfinder.toml (cwd)
 /// 3. $XDG_CONFIG_HOME/webfinder/config.toml
 /// 4. ~/.config/webfinder/config.toml
 pub fn load_config(explicit_path: Option<&Path>) -> Result<Config> {
@@ -169,13 +171,13 @@ pub fn load_config(explicit_path: Option<&Path>) -> Result<Config> {
 fn config_candidates(explicit: Option<&Path>) -> Vec<PathBuf> {
     let mut paths = Vec::new();
 
-    // CWD
-    paths.push(PathBuf::from("webfinder.toml"));
-
-    // Explicit
+    // Explicit --config flag takes highest priority
     if let Some(p) = explicit {
         paths.push(p.to_path_buf());
     }
+
+    // CWD
+    paths.push(PathBuf::from("webfinder.toml"));
 
     // XDG / platform
     if let Some(config_dir) = dirs::config_dir() {

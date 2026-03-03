@@ -21,6 +21,10 @@ export interface InfoResponse {
   config: {
     runners: string[];
     editor_theme: string;
+    auto_save: boolean;
+    font_size: number;
+    tab_size: number;
+    word_wrap: string;
     show_hidden: boolean;
   };
 }
